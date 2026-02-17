@@ -1,0 +1,2493 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>ML Tahmin Paneli • FastAPI</title>
+  <meta name="description" content="Bank marketing conversion prediction dashboard with CSV batch support, TR/EN language, and smart recommendations." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Design Tokens ───────────────────────────────────── */
+    :root {
+      --bg0: #09101f;
+      --bg1: #0d1526;
+      --bg2: #101a2e;
+      --glass: rgba(255,255,255,.05);
+      --glass2: rgba(255,255,255,.075);
+      --stroke: rgba(255,255,255,.09);
+      --stroke2: rgba(255,255,255,.055);
+      --text: rgba(255,255,255,.90);
+      --muted: rgba(255,255,255,.55);
+      --muted2: rgba(255,255,255,.38);
+      --good: #27c98a;
+      --warn: #e8a84a;
+      --bad: #e85a5e;
+      --accent: #5a6fff;
+      --accent2: #4db8d4;
+      --shadow: 0 20px 50px rgba(0,0,0,.45);
+      --shadow2: 0 6px 20px rgba(0,0,0,.28);
+      --radius: 16px;
+      --radius2: 12px;
+      --radius3: 8px;
+      --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: 'Outfit', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      --transition: .18s cubic-bezier(.4,0,.2,1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 1200px 700px at -5% 0%, rgba(90,111,255,.14) 0%, transparent 55%),
+        radial-gradient(ellipse 900px 600px at 105% 20%, rgba(77,184,212,.10) 0%, transparent 50%),
+        linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 60%, var(--bg2) 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 99px; }
+
+    /* ── Base Elements ───────────────────────────────────── */
+    code {
+      font-family: var(--mono);
+      font-size: .9em;
+      background: rgba(106,77,255,.18);
+      border: 1px solid rgba(106,77,255,.30);
+      padding: .06rem .36rem;
+      border-radius: 6px;
+      color: rgba(180,165,255,.95);
+    }
+
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      width: min(1200px, calc(100% - 2.5rem));
+      margin-inline: auto;
+    }
+
+    /* ── Animations ──────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .5; }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes barGrow {
+      from { width: 0; }
+    }
+
+    .fade-up { animation: fadeUp .45s var(--transition) both; }
+    .fade-up-2 { animation: fadeUp .45s .08s var(--transition) both; }
+    .fade-up-3 { animation: fadeUp .45s .16s var(--transition) both; }
+
+    /* ── Header ──────────────────────────────────────────── */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      backdrop-filter: saturate(170%) blur(14px);
+      background: rgba(8,12,24,.68);
+      border-bottom: 1px solid var(--stroke2);
+    }
+    .site-header .inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .85rem 0;
+    }
+
+    .brand { display: flex; align-items: center; gap: .9rem; }
+    .brand__mark {
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      font-weight: 800;
+      font-size: .92rem;
+      box-shadow: 0 6px 18px rgba(90,111,255,.35);
+      flex-shrink: 0;
+    }
+    .brand__title { font-weight: 700; font-size: 1rem; letter-spacing: -.01em; }
+    .brand__sub { color: var(--muted2); font-size: .82rem; margin-top: .1rem; }
+
+    .header-right { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+    .nav { display: flex; gap: .2rem; }
+    .nav a {
+      color: var(--muted);
+      padding: .4rem .65rem;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 500;
+      transition: background var(--transition), color var(--transition);
+    }
+    .nav a:hover { color: var(--text); background: var(--glass); text-decoration: none; }
+
+    .lang-switcher {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--stroke);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: .36rem .6rem;
+      font-size: .82rem;
+      font-weight: 700;
+      font-family: var(--sans);
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      letter-spacing: .04em;
+    }
+    .lang-btn.active {
+      background: rgba(90,111,255,.55);
+      color: var(--text);
+    }
+    .lang-btn:hover:not(.active) { background: var(--glass); color: var(--text); }
+
+    /* ── Hero ────────────────────────────────────────────── */
+    .hero {
+      padding: 3rem 0 1.8rem;
+    }
+    .hero__grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .hero__eyebrow {
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: .65rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .hero__eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 24px;
+      height: 2px;
+      background: var(--accent2);
+      border-radius: 99px;
+    }
+    .hero__title {
+      font-size: clamp(1.7rem, 3vw + .8rem, 2.9rem);
+      font-weight: 800;
+      line-height: 1.10;
+      letter-spacing: -.03em;
+    }
+    .hero__title span {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero__lead {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+      margin-top: .85rem;
+    }
+
+    /* Stat pills */
+    .stat-row { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.3rem; }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .45rem .75rem;
+      border-radius: 99px;
+      border: 1px solid var(--stroke);
+      background: var(--glass);
+      backdrop-filter: blur(6px);
+      font-size: .86rem;
+    }
+    .stat__icon { font-size: 1rem; }
+    .stat__label { color: var(--muted2); }
+    .stat__value { font-weight: 700; }
+
+    /* Quick card */
+    .quick-card {
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+    }
+    .quick-card__header {
+      padding: 1rem 1.1rem .7rem;
+      border-bottom: 1px solid var(--stroke2);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: .75rem;
+    }
+    .quick-card__title { font-weight: 700; font-size: .95rem; }
+    .quick-card__sub { color: var(--muted2); font-size: .83rem; margin-top: .2rem; }
+    .live-badge {
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      color: var(--good);
+      background: rgba(34,212,138,.14);
+      border: 1px solid rgba(34,212,138,.32);
+      padding: .28rem .52rem;
+      border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .live-badge::before { content: '● '; font-size: .65rem; animation: pulse 2s infinite; }
+    .quick-card__body { padding: .9rem 1.1rem 1.1rem; }
+    .btn-group { display: flex; gap: .55rem; flex-wrap: wrap; }
+    .mini-note {
+      margin-top: .7rem;
+      color: var(--muted2);
+      font-size: .84rem;
+      line-height: 1.5;
+    }
+
+    /* ── Sections ────────────────────────────────────────── */
+    .section { padding: 1.8rem 0; }
+    .section__header { margin-bottom: 1.1rem; }
+    .section__kicker {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: .45rem;
+    }
+    .section__title {
+      font-size: clamp(1.3rem, 2vw + .5rem, 1.85rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+    }
+    .section__desc {
+      color: var(--muted);
+      font-size: .97rem;
+      line-height: 1.6;
+      margin-top: .45rem;
+      max-width: 680px;
+    }
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      gap: .25rem;
+      border-bottom: 1px solid var(--stroke2);
+      margin-bottom: 1.1rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: .6rem .9rem;
+      font-size: .9rem;
+      font-weight: 600;
+      font-family: var(--sans);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      white-space: nowrap;
+      transition: color var(--transition), border-color var(--transition);
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--accent2);
+      border-color: var(--accent2);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Panels ──────────────────────────────────────────── */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .panel {
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel__header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .75rem;
+      padding: .9rem 1rem .7rem;
+      border-bottom: 1px solid var(--stroke2);
+      background: var(--glass2);
+    }
+    .panel__title { font-weight: 700; font-size: .93rem; }
+    .panel__hint { color: var(--muted2); font-size: .83rem; }
+
+    /* ── Form ────────────────────────────────────────────── */
+    .form-body { padding: .9rem 1rem 1rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: .75rem; }
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    .field__label { font-weight: 600; font-size: .88rem; }
+    .field__help { color: var(--muted2); font-size: .8rem; line-height: 1.4; }
+    .field__control {
+      width: 100%;
+      padding: .62rem .7rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.13);
+      background: rgba(8,12,24,.55);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: .88rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .field__control:focus {
+      border-color: rgba(106,77,255,.65);
+      box-shadow: 0 0 0 3px rgba(106,77,255,.18);
+    }
+    .field__control option { background: #101828; }
+    .action-row { display: flex; gap: .55rem; flex-wrap: wrap; align-items: center; }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: .62rem .85rem;
+      font-weight: 700;
+      font-size: .88rem;
+      font-family: var(--sans);
+      color: var(--text);
+      background: var(--glass2);
+      cursor: pointer;
+      transition: transform .08s ease, background var(--transition), box-shadow var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      white-space: nowrap;
+    }
+    .btn:hover { background: rgba(255,255,255,.12); border-color: var(--stroke); }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn--primary {
+      background: linear-gradient(135deg, rgba(90,111,255,.90), rgba(77,184,212,.70));
+      border-color: rgba(255,255,255,.12);
+      box-shadow: 0 4px 16px rgba(90,111,255,.28);
+    }
+    .btn--primary:hover { filter: saturate(110%) brightness(1.05); }
+    .btn--success {
+      background: linear-gradient(135deg, rgba(39,201,138,.85), rgba(77,184,212,.65));
+      border-color: rgba(255,255,255,.12);
+      box-shadow: 0 4px 16px rgba(39,201,138,.22);
+    }
+    .btn--ghost { background: transparent; border-color: var(--stroke); }
+    .btn--ghost:hover { background: var(--glass); }
+    .btn--sm { padding: .44rem .7rem; border-radius: 8px; font-size: .82rem; }
+    .btn--danger { background: rgba(255,95,99,.15); border-color: rgba(255,95,99,.35); color: var(--bad); }
+    .btn--danger:hover { background: rgba(255,95,99,.22); }
+    .btn .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.25);
+      border-top-color: rgba(255,255,255,.85);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: none;
+    }
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-text { display: none; }
+
+    /* ── JSON Box ────────────────────────────────────────── */
+    .json-box { padding: .9rem 1rem 1rem; }
+    .json-box__toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    .json-box__textarea {
+      width: 100%;
+      padding: .8rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(8,12,24,.55);
+      color: rgba(255,255,255,.88);
+      font-family: var(--mono);
+      font-size: .84rem;
+      line-height: 1.5;
+      outline: none;
+      resize: vertical;
+      min-height: 240px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .json-box__textarea:focus {
+      border-color: rgba(0,200,248,.5);
+      box-shadow: 0 0 0 3px rgba(0,200,248,.13);
+    }
+    .json-box__hint { margin-top: .55rem; color: var(--muted2); font-size: .8rem; line-height: 1.45; }
+
+    /* ── CSV Upload ──────────────────────────────────────── */
+    .csv-section { padding: .9rem 1rem 1rem; }
+    .drop-zone {
+      border: 2px dashed rgba(255,255,255,.18);
+      border-radius: var(--radius2);
+      padding: 2.2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      position: relative;
+      background: rgba(8,12,24,.3);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent2);
+      background: rgba(0,200,248,.06);
+    }
+    .drop-zone__icon { font-size: 2.4rem; margin-bottom: .6rem; }
+    .drop-zone__title { font-weight: 700; font-size: .97rem; margin-bottom: .3rem; }
+    .drop-zone__sub { color: var(--muted2); font-size: .85rem; }
+    #csvFileInput { display: none; }
+
+    .csv-controls {
+      display: flex;
+      gap: .55rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: .85rem;
+    }
+    .csv-status {
+      color: var(--muted2);
+      font-size: .84rem;
+      flex: 1;
+      min-width: 150px;
+    }
+    .csv-status strong { color: var(--text); }
+
+    /* Progress */
+    .progress-wrap {
+      margin-top: .9rem;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-bar-outer {
+      height: 6px;
+      background: rgba(255,255,255,.10);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: .45rem;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      transition: width .2s ease;
+      width: 0%;
+    }
+    .progress-text { color: var(--muted2); font-size: .8rem; }
+
+    /* CSV Results Table */
+    .csv-results { margin-top: 1rem; }
+    .csv-results__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .65rem;
+      flex-wrap: wrap;
+    }
+    .csv-results__title { font-weight: 700; font-size: .93rem; }
+    .csv-summary {
+      display: flex;
+      gap: .65rem;
+      flex-wrap: wrap;
+    }
+    .csv-stat {
+      padding: .3rem .6rem;
+      border-radius: 8px;
+      font-size: .8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+    }
+    .csv-stat--yes { background: rgba(34,212,138,.14); color: var(--good); border: 1px solid rgba(34,212,138,.3); }
+    .csv-stat--no  { background: rgba(255,255,255,.08); color: var(--muted); border: 1px solid var(--stroke2); }
+    .csv-stat--rate{ background: rgba(0,200,248,.12); color: var(--accent2); border: 1px solid rgba(0,200,248,.28); }
+
+    .table-wrap {
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius2);
+      overflow: auto;
+      max-height: 420px;
+      background: rgba(8,12,24,.35);
+    }
+    .table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: .83rem;
+      min-width: 900px;
+    }
+    .table th, .table td {
+      text-align: left;
+      padding: .65rem .8rem;
+      border-bottom: 1px solid var(--stroke2);
+      vertical-align: middle;
+    }
+    .table th {
+      position: sticky;
+      top: 0;
+      background: rgba(10,14,26,.92);
+      backdrop-filter: blur(10px);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--muted);
+    }
+    .table td { color: rgba(255,255,255,.82); }
+    .table tbody tr:hover { background: rgba(255,255,255,.03); }
+    .table tr:last-child td { border-bottom: 0; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .22rem .55rem;
+      border-radius: 99px;
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    .badge--yes { background: rgba(34,212,138,.14); color: var(--good); border: 1px solid rgba(34,212,138,.3); }
+    .badge--no  { background: rgba(255,255,255,.07); color: var(--muted); border: 1px solid var(--stroke2); }
+
+    /* ── Result Panel ────────────────────────────────────── */
+    .result-box {
+      margin: 0 1rem 1rem;
+      border-radius: var(--radius2);
+      border: 1px solid var(--stroke);
+      background: var(--glass);
+      overflow: hidden;
+      animation: fadeUp .35s ease both;
+    }
+    .result-box__header {
+      padding: .85rem 1rem .7rem;
+      border-bottom: 1px solid var(--stroke2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      background: var(--glass2);
+    }
+    .result-box__title { font-weight: 700; font-size: .93rem; }
+    .result-box__meta { color: var(--muted2); font-size: .8rem; }
+    .result-box__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .7rem;
+      padding: .85rem;
+    }
+    .metric {
+      border: 1px solid var(--stroke2);
+      background: rgba(8,12,24,.45);
+      border-radius: 12px;
+      padding: .75rem .8rem .7rem;
+    }
+    .metric__k { color: var(--muted2); font-size: .78rem; font-weight: 600; letter-spacing: .03em; }
+    .metric__v { font-size: 1.2rem; font-weight: 800; margin-top: .22rem; letter-spacing: -.01em; }
+    .metric__sub { color: var(--muted); font-size: .78rem; margin-top: .28rem; line-height: 1.35; }
+    .meter {
+      margin-top: .5rem;
+      height: 5px;
+      border-radius: 99px;
+      background: rgba(255,255,255,.09);
+      overflow: hidden;
+    }
+    .meter__fill {
+      height: 100%;
+      border-radius: 99px;
+      animation: barGrow .5s ease both;
+    }
+    .meter__fill--good { background: var(--good); }
+    .meter__fill--muted { background: rgba(255,255,255,.22); }
+
+    /* ── Alerts ──────────────────────────────────────────── */
+    .alert {
+      margin: 0 1rem 1rem;
+      padding: .7rem .85rem;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      font-size: .86rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .alert--error { border-color: rgba(255,95,99,.35); background: rgba(255,95,99,.10); color: var(--bad); }
+    .alert--success { border-color: rgba(34,212,138,.35); background: rgba(34,212,138,.10); color: var(--good); }
+    .alert--muted { border-color: var(--stroke2); background: var(--glass); color: var(--muted); }
+    .alert--warn { border-color: rgba(245,189,75,.35); background: rgba(245,189,75,.10); color: var(--warn); }
+
+    /* ── Toast ───────────────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      pointer-events: none;
+    }
+    .toast {
+      padding: .7rem 1rem;
+      border-radius: 12px;
+      font-size: .86rem;
+      font-weight: 600;
+      color: var(--text);
+      box-shadow: var(--shadow2);
+      border: 1px solid rgba(255,255,255,.14);
+      pointer-events: auto;
+      animation: fadeUp .3s ease both;
+      max-width: 320px;
+    }
+    .toast--success { background: rgba(34,212,138,.20); border-color: rgba(34,212,138,.35); }
+    .toast--error   { background: rgba(255,95,99,.20); border-color: rgba(255,95,99,.35); }
+    .toast--info    { background: rgba(0,200,248,.15); border-color: rgba(0,200,248,.30); }
+
+    /* ── Column Reference ────────────────────────────────── */
+    .col-table-wrap {
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      overflow: auto;
+      background: rgba(8,12,24,.3);
+    }
+    .col-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 700px; }
+    .col-table th, .col-table td {
+      text-align: left;
+      padding: .72rem .9rem;
+      border-bottom: 1px solid var(--stroke2);
+      vertical-align: top;
+    }
+    .col-table th {
+      position: sticky;
+      top: 0;
+      background: rgba(10,14,26,.9);
+      backdrop-filter: blur(8px);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--muted);
+    }
+    .col-table td { color: rgba(255,255,255,.82); }
+    .col-table tr:last-child td { border-bottom: 0; }
+    .col-table tbody tr:hover { background: rgba(255,255,255,.025); }
+    .type-tag {
+      display: inline-block;
+      padding: .16rem .45rem;
+      background: rgba(106,77,255,.18);
+      border: 1px solid rgba(106,77,255,.30);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: rgba(180,165,255,.9);
+    }
+    .type-tag--str { background: rgba(0,200,248,.12); border-color: rgba(0,200,248,.28); color: var(--accent2); }
+
+    /* ── Scenarios ───────────────────────────────────────── */
+    .scenarios-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .scenario-card {
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 1.1rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .scenario-card:hover {
+      border-color: rgba(90,111,255,.40);
+      box-shadow: 0 6px 24px rgba(90,111,255,.10);
+    }
+    .scenario-card__icon {
+      font-size: 1.6rem;
+      margin-bottom: .6rem;
+      display: block;
+    }
+    .scenario-card__title { font-weight: 800; font-size: .95rem; margin-bottom: .45rem; }
+    .scenario-card__desc { color: var(--muted); font-size: .86rem; line-height: 1.6; }
+    .scenario-card__steps {
+      margin-top: .8rem;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+    .step {
+      display: flex;
+      gap: .5rem;
+      align-items: flex-start;
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .step__num {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(90,111,255,.55);
+      font-size: .68rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      margin-top: .05rem;
+    }
+
+    /* ── Tips ────────────────────────────────────────────── */
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .tip-card {
+      border: 1px solid var(--stroke);
+      background: var(--glass);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .tip-card__header { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
+    .tip-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .tip-icon--good { background: rgba(34,212,138,.15); }
+    .tip-icon--warn { background: rgba(245,189,75,.15); }
+    .tip-icon--info { background: rgba(0,200,248,.12); }
+    .tip-card__title { font-weight: 800; font-size: .9rem; }
+    .tip-card__text { color: var(--muted); font-size: .84rem; line-height: 1.6; }
+
+    /* ── Prediction Advice Box ──────────────────────────── */
+    .advice-box {
+      margin: 0 1rem 1rem;
+      border-radius: var(--radius2);
+      border: 1px solid var(--stroke);
+      background: var(--glass);
+      overflow: hidden;
+    }
+    .advice-box__header {
+      padding: .7rem 1rem .55rem;
+      border-bottom: 1px solid var(--stroke2);
+      background: var(--glass2);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-weight: 700;
+      font-size: .85rem;
+    }
+    .advice-box__icon { font-size: 1rem; }
+    .advice-box__body { padding: .75rem 1rem .85rem; display: flex; flex-direction: column; gap: .45rem; }
+    .advice-item {
+      display: flex;
+      gap: .55rem;
+      align-items: flex-start;
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .advice-item__dot {
+      flex-shrink: 0;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: .45rem;
+    }
+    .advice-item__dot--good  { background: var(--good); }
+    .advice-item__dot--warn  { background: var(--warn); }
+    .advice-item__dot--info  { background: var(--accent2); }
+    .advice-item strong { color: var(--text); }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .site-footer {
+      padding: 1.6rem 0 2.2rem;
+      border-top: 1px solid var(--stroke2);
+      background: rgba(8,12,24,.4);
+      margin-top: 1rem;
+    }
+    .footer__inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer__brand { font-weight: 700; margin-bottom: .25rem; }
+    .footer__sub { color: var(--muted2); font-size: .85rem; }
+    .footer__tip { color: var(--muted); font-size: .85rem; max-width: 480px; line-height: 1.55; }
+    .footer__version { color: var(--muted2); font-size: .78rem; margin-top: .4rem; }
+
+    /* ── Accessibility ───────────────────────────────────── */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    .skip-link {
+      position: absolute; left: -999px; top: 0;
+      padding: .6rem .8rem; background: #111; color: #fff; border-radius: .6rem;
+    }
+    .skip-link:focus { left: 1rem; top: 1rem; z-index: 999; }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 1000px) {
+      .hero__grid, .grid2 { grid-template-columns: 1fr; }
+      .scenarios-grid { grid-template-columns: 1fr 1fr; }
+      .tips-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 680px) {
+      .scenarios-grid { grid-template-columns: 1fr; }
+      .tips-grid { grid-template-columns: 1fr; }
+      .result-box__grid { grid-template-columns: 1fr; }
+      .site-header .inner { flex-direction: column; align-items: flex-start; }
+      .header-right { width: 100%; }
+      .form-row { grid-template-columns: 1fr; }
+      .csv-controls { flex-direction: column; align-items: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn, .scenario-card, .tip-card { transition: none; }
+      .fade-up, .fade-up-2, .fade-up-3 { animation: none; }
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg0: #f3f5fb;
+        --bg1: #edf0f9;
+        --bg2: #e8ecf5;
+        --text: rgba(15,20,40,.90);
+        --muted: rgba(15,20,40,.58);
+        --muted2: rgba(15,20,40,.42);
+        --glass: rgba(255,255,255,.70);
+        --glass2: rgba(255,255,255,.85);
+        --stroke: rgba(15,20,40,.11);
+        --stroke2: rgba(15,20,40,.06);
+        --shadow: 0 20px 50px rgba(15,20,40,.14);
+      }
+      body { background-attachment: fixed; }
+      .site-header { background: rgba(243,245,251,.82); }
+      .field__control, .json-box__textarea { background: rgba(255,255,255,.85); }
+      .quick-card { background: rgba(255,255,255,.80); }
+      code { background: rgba(90,111,255,.09); border-color: rgba(90,111,255,.18); color: rgba(70,90,200,.9); }
+      .table th { background: rgba(238,242,255,.92); color: rgba(15,20,40,.52); }
+      .col-table th { background: rgba(238,242,255,.92); color: rgba(15,20,40,.52); }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main" id="i18n-skip">İçeriğe atla</a>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ── Header ──────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="container inner">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">ML</div>
+        <div>
+          <div class="brand__title" id="i18n-brand-title">Tahmin Paneli</div>
+          <div class="brand__sub" id="i18n-brand-sub">FastAPI · Model Servisi · Batch CSV</div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <nav class="nav" aria-label="Sayfa">
+          <a href="#predict" id="i18n-nav-predict">Tahmin</a>
+          <a href="#columns" id="i18n-nav-columns">Kolonlar</a>
+          <a href="#scenarios" id="i18n-nav-scenarios">Senaryolar</a>
+          <a href="#tips" id="i18n-nav-tips">Tavsiyeler</a>
+        </nav>
+        <div class="lang-switcher" role="group" aria-label="Language">
+          <button class="lang-btn active" data-lang="tr">TR</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero__grid">
+          <div class="fade-up">
+            <div class="hero__eyebrow" id="i18n-hero-eyebrow">Bank Marketing Dataset</div>
+            <h1 class="hero__title" id="i18n-hero-title">
+              Müşteri <span>dönüşüm olasılığı</span> tahmini
+            </h1>
+            <p class="hero__lead" id="i18n-hero-lead">
+              Müşteriye ait demografik ve kampanya özelliklerini girerek ya da CSV dosyası yükleyerek
+              modelin <strong>tahmin</strong> ve <strong>olasılık</strong> skoru üretmesini sağlayın.
+            </p>
+            <div class="stat-row">
+              <div class="stat">
+                <span class="stat__icon">🎯</span>
+                <span class="stat__label" id="i18n-stat1-label">Çıktı</span>
+                <span class="stat__value">prediction, prob_0, prob_1</span>
+              </div>
+              <div class="stat">
+                <span class="stat__icon">📊</span>
+                <span class="stat__label" id="i18n-stat2-label">Özellik</span>
+                <span class="stat__value">15 <span id="i18n-stat2-val">değişken</span></span>
+              </div>
+              <div class="stat">
+                <span class="stat__icon">⚡</span>
+                <span class="stat__label" id="i18n-stat3-label">Arayüz</span>
+                <span class="stat__value">Form + JSON + CSV</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fade-up-2">
+            <div class="quick-card">
+              <div class="quick-card__header">
+                <div>
+                  <div class="quick-card__title" id="i18n-qcard-title">Hızlı deneme</div>
+                  <div class="quick-card__sub" id="i18n-qcard-sub">Örnek girdiyi tek tıkla yükle ve tahmin al</div>
+                </div>
+                <div class="live-badge" id="i18n-live-badge">LIVE</div>
+              </div>
+              <div class="quick-card__body">
+                <div class="btn-group">
+                  <button class="btn btn--ghost" type="button" id="btnFillExample">
+                    <span class="btn-text" id="i18n-btn-fill">📋 Örnek doldur</span>
+                  </button>
+                  <button class="btn btn--primary" type="button" id="btnRunExample">
+                    <span class="spinner"></span>
+                    <span class="btn-text" id="i18n-btn-run">▶ Tahmin al</span>
+                  </button>
+                </div>
+                <p class="mini-note" id="i18n-mini-note">
+                  Form → JSON → <code>/predict</code> endpoint. Form alanları <code>ModelFeature</code> şemasıyla birebir uyumludur.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Predict Section -->
+    <section class="section" id="predict" aria-label="Tahmin formu">
+      <div class="container">
+        <div class="section__header fade-up">
+          <div class="section__kicker" id="i18n-predict-kicker">Tahmin Merkezi</div>
+          <h2 class="section__title" id="i18n-predict-title">Tahmin al</h2>
+          <p class="section__desc" id="i18n-predict-desc">
+            Form modu, JSON modu veya CSV batch modu ile tahmin yapabilirsiniz.
+          </p>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar" role="tablist">
+          <button class="tab-btn active" role="tab" data-tab="tab-form" id="i18n-tab-form">📝 Form</button>
+          <button class="tab-btn" role="tab" data-tab="tab-json" id="i18n-tab-json">🔧 JSON</button>
+          <button class="tab-btn" role="tab" data-tab="tab-csv" id="i18n-tab-csv">📂 CSV Batch</button>
+        </div>
+
+        <!-- Tab: Form + JSON -->
+        <div class="tab-pane active" id="tab-form">
+          <div class="grid2">
+            <!-- Form Panel -->
+            <div class="panel">
+              <div class="panel__header">
+                <div class="panel__title" id="i18n-form-panel-title">Form modu</div>
+                <div class="panel__hint" id="i18n-form-panel-hint">Doldur → JSON üret → Gönder</div>
+              </div>
+              <div class="form-body">
+                <form id="predictForm" novalidate>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="age" id="i18n-label-age">age</label>
+                      <input class="field__control" id="age" name="age" type="number" min="18" max="120" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-age">Müşteri yaşı (18–120).</div>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="balance">balance</label>
+                      <input class="field__control" id="balance" name="balance" type="number" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-balance">Hesap bakiyesi (negatif olabilir).</div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="job">job</label>
+                      <select class="field__control" id="job" name="job" required>
+                        <option value="" disabled selected id="i18n-select-placeholder">Seçin…</option>
+                        <option value="admin.">admin.</option>
+                        <option value="blue-collar">blue-collar</option>
+                        <option value="entrepreneur">entrepreneur</option>
+                        <option value="housemaid">housemaid</option>
+                        <option value="management">management</option>
+                        <option value="retired">retired</option>
+                        <option value="self-employed">self-employed</option>
+                        <option value="services">services</option>
+                        <option value="student">student</option>
+                        <option value="technician">technician</option>
+                        <option value="unemployed">unemployed</option>
+                        <option value="unknown">unknown</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="marital">marital</label>
+                      <select class="field__control" id="marital" name="marital" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="married">married</option>
+                        <option value="single">single</option>
+                        <option value="divorced">divorced</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="education">education</label>
+                      <select class="field__control" id="education" name="education" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="primary">primary</option>
+                        <option value="secondary">secondary</option>
+                        <option value="tertiary">tertiary</option>
+                        <option value="unknown">unknown</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="fdefault">default</label>
+                      <select class="field__control" id="fdefault" name="default" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="no">no</option>
+                        <option value="yes">yes</option>
+                      </select>
+                      <div class="field__help" id="i18n-help-default">Kredi temerrüdü var mı?</div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="housing">housing</label>
+                      <select class="field__control" id="housing" name="housing" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="no">no</option>
+                        <option value="yes">yes</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="loan">loan</label>
+                      <select class="field__control" id="loan" name="loan" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="no">no</option>
+                        <option value="yes">yes</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="contact">contact</label>
+                      <select class="field__control" id="contact" name="contact" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="cellular">cellular</option>
+                        <option value="telephone">telephone</option>
+                        <option value="unknown">unknown</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="poutcome">poutcome</label>
+                      <select class="field__control" id="poutcome" name="poutcome" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="success">success</option>
+                        <option value="failure">failure</option>
+                        <option value="other">other</option>
+                        <option value="unknown">unknown</option>
+                      </select>
+                      <div class="field__help" id="i18n-help-poutcome">Önceki kampanya sonucu.</div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="day">day</label>
+                      <input class="field__control" id="day" name="day" type="number" min="1" max="31" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-day">Ayın günü (1–31).</div>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="month">month</label>
+                      <select class="field__control" id="month" name="month" required>
+                        <option value="" disabled selected>Seçin…</option>
+                        <option value="jan">jan</option><option value="feb">feb</option>
+                        <option value="mar">mar</option><option value="apr">apr</option>
+                        <option value="may">may</option><option value="jun">jun</option>
+                        <option value="jul">jul</option><option value="aug">aug</option>
+                        <option value="sep">sep</option><option value="oct">oct</option>
+                        <option value="nov">nov</option><option value="dec">dec</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="campaign">campaign</label>
+                      <input class="field__control" id="campaign" name="campaign" type="number" min="1" max="50" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-campaign">Bu kampanyada arama sayısı. <strong>9'u geçmeyin.</strong></div>
+                    </div>
+                    <div class="field">
+                      <label class="field__label" for="pdays">pdays</label>
+                      <input class="field__control" id="pdays" name="pdays" type="number" min="-1" max="999" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-pdays">Son iletişimden beri geçen gün. Hiç aranmadıysa <code>-1</code>.</div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field">
+                      <label class="field__label" for="previous">previous</label>
+                      <input class="field__control" id="previous" name="previous" type="number" min="0" max="50" step="1" required autocomplete="off" />
+                      <div class="field__help" id="i18n-help-previous">Önceki kampanyalarda iletişim sayısı.</div>
+                    </div>
+                    <div class="field">
+                      <div class="field__label" id="i18n-label-action">İşlem</div>
+                      <div class="action-row">
+                        <button class="btn btn--ghost" type="button" id="btnToJson">
+                          <span class="btn-text" id="i18n-btn-tojson">⚙ JSON üret</span>
+                        </button>
+                        <button class="btn btn--primary" type="submit" id="btnPredict">
+                          <span class="spinner"></span>
+                          <span class="btn-text" id="i18n-btn-predict">🔍 Tahmin al</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="alert alert--muted" id="formValidation" role="status" aria-live="polite" hidden></div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Result/JSON Panel -->
+            <div class="panel">
+              <div class="panel__header">
+                <div class="panel__title" id="i18n-json-panel-title">JSON modu</div>
+                <div class="panel__hint" id="i18n-json-panel-hint">Görüntüle / düzenle / yapıştır</div>
+              </div>
+              <div class="json-box">
+                <div class="json-box__toolbar">
+                  <button class="btn btn--ghost btn--sm" type="button" id="btnPasteExample">
+                    <span id="i18n-btn-example">Örnek JSON</span>
+                  </button>
+                  <button class="btn btn--ghost btn--sm" type="button" id="btnCopyJson">
+                    <span id="i18n-btn-copy">📋 Kopyala</span>
+                  </button>
+                  <button class="btn btn--primary btn--sm" type="button" id="btnPredictJson">
+                    <span class="spinner"></span>
+                    <span class="btn-text" id="i18n-btn-predicjson">▶ JSON ile tahmin</span>
+                  </button>
+                </div>
+                <label class="sr-only" for="jsonPayload">JSON payload</label>
+                <textarea class="json-box__textarea" id="jsonPayload" spellcheck="false" rows="14"></textarea>
+                <div class="json-box__hint" id="i18n-json-hint">
+                  ⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> alanları <strong>int</strong> olmalı.
+                </div>
+              </div>
+              <div class="result-box" id="result" hidden>
+                <div class="result-box__header">
+                  <div class="result-box__title" id="i18n-result-title">Sonuç</div>
+                  <div class="result-box__meta" id="resultMeta"></div>
+                </div>
+                <div class="result-box__grid">
+                  <div class="metric">
+                    <div class="metric__k" id="i18n-pred-k">prediction</div>
+                    <div class="metric__v" id="predLabel">—</div>
+                    <div class="metric__sub" id="predSub">—</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric__k">probability_1</div>
+                    <div class="metric__v" id="prob1">—</div>
+                    <div class="meter"><div class="meter__fill meter__fill--good" id="prob1Bar" style="width:0%"></div></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric__k">probability_0</div>
+                    <div class="metric__v" id="prob0">—</div>
+                    <div class="meter"><div class="meter__fill meter__fill--muted" id="prob0Bar" style="width:0%"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="advice-box" id="adviceBox" hidden>
+                <div class="advice-box__header">
+                  <span class="advice-box__icon">💡</span>
+                  <span id="i18n-advice-title">Aksiyon Tavsiyesi</span>
+                </div>
+                <div class="advice-box__body" id="adviceBody"></div>
+              </div>
+              <div class="alert alert--error" id="apiError" role="alert" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: JSON only (alias to json panel) -->
+        <div class="tab-pane" id="tab-json">
+          <div class="panel">
+            <div class="panel__header">
+              <div class="panel__title" id="i18n-tab-json-title">JSON Modu</div>
+              <div class="panel__hint" id="i18n-tab-json-hint">Ham JSON payload ile tahmin gönder</div>
+            </div>
+            <div class="json-box">
+              <div class="json-box__toolbar">
+                <button class="btn btn--ghost btn--sm" type="button" id="btnPasteExample2">
+                  <span id="i18n-btn-example2">Örnek JSON</span>
+                </button>
+                <button class="btn btn--ghost btn--sm" type="button" id="btnCopyJson2">
+                  <span id="i18n-btn-copy2">📋 Kopyala</span>
+                </button>
+                <button class="btn btn--primary btn--sm" type="button" id="btnPredictJson2">
+                  <span class="spinner"></span>
+                  <span class="btn-text" id="i18n-btn-predicjson2">▶ JSON ile tahmin</span>
+                </button>
+              </div>
+              <label class="sr-only" for="jsonPayload2">JSON payload (tab 2)</label>
+              <textarea class="json-box__textarea" id="jsonPayload2" spellcheck="false" rows="18"></textarea>
+              <div class="json-box__hint" id="i18n-json-hint2">
+                ⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> alanları <strong>int</strong> olmalı.
+              </div>
+            </div>
+            <div class="result-box" id="result2" hidden>
+              <div class="result-box__header">
+                <div class="result-box__title" id="i18n-result-title2">Sonuç</div>
+                <div class="result-box__meta" id="resultMeta2"></div>
+              </div>
+              <div class="result-box__grid">
+                <div class="metric">
+                  <div class="metric__k">prediction</div>
+                  <div class="metric__v" id="predLabel2">—</div>
+                  <div class="metric__sub" id="predSub2">—</div>
+                </div>
+                <div class="metric">
+                  <div class="metric__k">probability_1</div>
+                  <div class="metric__v" id="prob1_2">—</div>
+                  <div class="meter"><div class="meter__fill meter__fill--good" id="prob1Bar2" style="width:0%"></div></div>
+                </div>
+                <div class="metric">
+                  <div class="metric__k">probability_0</div>
+                  <div class="metric__v" id="prob0_2">—</div>
+                  <div class="meter"><div class="meter__fill meter__fill--muted" id="prob0Bar2" style="width:0%"></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="alert alert--error" id="apiError2" role="alert" hidden></div>
+          </div>
+        </div>
+
+        <!-- Tab: CSV Batch -->
+        <div class="tab-pane" id="tab-csv">
+          <div class="panel">
+            <div class="panel__header">
+              <div class="panel__title" id="i18n-csv-panel-title">CSV Batch Tahmin</div>
+              <div class="panel__hint" id="i18n-csv-panel-hint">Birden çok satırı tek seferde tahmin et</div>
+            </div>
+            <div class="csv-section">
+              <!-- Drop zone -->
+              <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="CSV dosyası yükle">
+                <div class="drop-zone__icon">📂</div>
+                <div class="drop-zone__title" id="i18n-drop-title">CSV dosyasını buraya sürükle veya tıkla</div>
+                <div class="drop-zone__sub" id="i18n-drop-sub">
+                  Desteklenen sütunlar: age, job, marital, education, default, balance, housing, loan, contact, day, month, campaign, pdays, previous, poutcome
+                </div>
+              </div>
+              <input type="file" id="csvFileInput" accept=".csv" />
+
+              <div class="csv-controls">
+                <button class="btn btn--ghost btn--sm" type="button" id="btnDownloadTemplate">
+                  <span id="i18n-btn-template">⬇ Şablon CSV İndir</span>
+                </button>
+                <button class="btn btn--success" type="button" id="btnRunBatch" disabled>
+                  <span class="spinner"></span>
+                  <span class="btn-text" id="i18n-btn-batch">🚀 Batch Tahmin Başlat</span>
+                </button>
+                <button class="btn btn--ghost btn--sm" type="button" id="btnClearCsv" disabled>
+                  <span id="i18n-btn-clear">🗑 Temizle</span>
+                </button>
+                <button class="btn btn--ghost btn--sm" type="button" id="btnExportCsv" disabled>
+                  <span id="i18n-btn-export">📤 Sonuçları İndir</span>
+                </button>
+                <div class="csv-status" id="csvStatus">
+                  <span id="i18n-csv-status-idle">Dosya seçilmedi.</span>
+                </div>
+              </div>
+
+              <div class="progress-wrap" id="progressWrap">
+                <div class="progress-bar-outer">
+                  <div class="progress-bar-inner" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">0 / 0</div>
+              </div>
+
+              <div class="alert alert--warn" id="csvWarning" role="alert" hidden></div>
+              <div class="alert alert--error" id="csvError" role="alert" hidden></div>
+
+              <div class="csv-results" id="csvResults" hidden>
+                <div class="csv-results__header">
+                  <div class="csv-results__title" id="i18n-csv-results-title">Batch Sonuçları</div>
+                  <div class="csv-summary" id="csvSummary"></div>
+                </div>
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr id="csvTableHead"></tr>
+                    </thead>
+                    <tbody id="csvTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Columns Reference -->
+    <section class="section" id="columns" aria-label="Kolon açıklamaları">
+      <div class="container">
+        <div class="section__header fade-up">
+          <div class="section__kicker" id="i18n-col-kicker">Şema Referansı</div>
+          <h2 class="section__title" id="i18n-col-title">Kolonlar (ModelFeature)</h2>
+          <p class="section__desc" id="i18n-col-desc">
+            Modelin beklediği 15 giriş değişkeninin açıklamaları ve veri kalitesi notları.
+          </p>
+        </div>
+        <div class="col-table-wrap" role="region" aria-label="Kolon tablosu" tabindex="0">
+          <table class="col-table">
+            <thead>
+              <tr>
+                <th id="i18n-th-col">Kolon</th>
+                <th id="i18n-th-type">Tip</th>
+                <th id="i18n-th-desc">Açıklama</th>
+                <th id="i18n-th-values">Değerler / Aralık</th>
+                <th id="i18n-th-note">Not</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>age</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-age-desc">Müşteri yaşı</td><td>18 – 120</td><td id="i18n-col-age-note">Uç değerler modeli bozabilir.</td></tr>
+              <tr><td><code>job</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-job-desc">Meslek kategorisi</td><td><code>admin.</code> <code>technician</code> <code>retired</code> …</td><td id="i18n-col-job-note">Bilinmiyorsa <code>unknown</code>.</td></tr>
+              <tr><td><code>marital</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-marital-desc">Medeni durum</td><td><code>married</code> <code>single</code> <code>divorced</code></td><td></td></tr>
+              <tr><td><code>education</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-edu-desc">Eğitim seviyesi</td><td><code>primary</code> <code>secondary</code> <code>tertiary</code> <code>unknown</code></td><td id="i18n-col-edu-note">Boş geçmeyin.</td></tr>
+              <tr><td><code>default</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-def-desc">Kredi temerrüdü</td><td><code>yes</code> / <code>no</code></td><td></td></tr>
+              <tr><td><code>balance</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-bal-desc">Hesap bakiyesi</td><td>−∞ … +∞</td><td id="i18n-col-bal-note">Negatif değer mümkündür.</td></tr>
+              <tr><td><code>housing</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-hous-desc">Konut kredisi</td><td><code>yes</code> / <code>no</code></td><td></td></tr>
+              <tr><td><code>loan</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-loan-desc">Kişisel kredi</td><td><code>yes</code> / <code>no</code></td><td></td></tr>
+              <tr><td><code>contact</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-cont-desc">İletişim kanalı</td><td><code>cellular</code> <code>telephone</code> <code>unknown</code></td><td></td></tr>
+              <tr><td><code>day</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-day-desc">Ayın günü</td><td>1 – 31</td><td id="i18n-col-day-note">Kalite kontrol önerilir.</td></tr>
+              <tr><td><code>month</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-mon-desc">Ay</td><td><code>jan</code> … <code>dec</code></td><td></td></tr>
+              <tr><td><code>campaign</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-camp-desc">Bu kampanyadaki arama sayısı</td><td>1 – 50</td><td id="i18n-col-camp-note">⚠ 9'dan fazla aramayın.</td></tr>
+              <tr><td><code>pdays</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-pdays-desc">Önceki iletişimden bu yana gün</td><td>−1 … 999</td><td id="i18n-col-pdays-note">Hiç aranmadıysa <code>-1</code>.</td></tr>
+              <tr><td><code>previous</code></td><td><span class="type-tag">int</span></td><td id="i18n-col-prev-desc">Önceki kampanya iletişim sayısı</td><td>0 – 50</td><td id="i18n-col-prev-note"><code>pdays=-1</code> ise genelde <code>0</code>.</td></tr>
+              <tr><td><code>poutcome</code></td><td><span class="type-tag type-tag--str">str</span></td><td id="i18n-col-pout-desc">Önceki kampanya sonucu</td><td><code>success</code> <code>failure</code> <code>other</code> <code>unknown</code></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Usage Scenarios -->
+    <section class="section" id="scenarios" aria-label="Kullanım senaryoları">
+      <div class="container">
+        <div class="section__header fade-up">
+          <div class="section__kicker" id="i18n-scen-kicker">Kullanım Senaryoları</div>
+          <h2 class="section__title" id="i18n-scen-title">Ne zaman nasıl kullanmalısınız?</h2>
+          <p class="section__desc" id="i18n-scen-desc">
+            Bu panel üç farklı iş senaryosuna hitap eder. İhtiyacınıza göre uygun modu seçin.
+          </p>
+        </div>
+        <div class="scenarios-grid">
+          <div class="scenario-card">
+            <span class="scenario-card__icon">🧑‍💼</span>
+            <div class="scenario-card__title" id="i18n-scen1-title">Tek Müşteri Analizi</div>
+            <p class="scenario-card__desc" id="i18n-scen1-desc">Bir müşteriyle görüşmeden önce dönüşüm olasılığını anlık ölçmek istiyorsunuz.</p>
+            <div class="scenario-card__steps">
+              <div class="step"><span class="step__num">1</span><span id="i18n-scen1-s1">Form moduna geçin</span></div>
+              <div class="step"><span class="step__num">2</span><span id="i18n-scen1-s2">Müşteri bilgilerini doldurun</span></div>
+              <div class="step"><span class="step__num">3</span><span id="i18n-scen1-s3">"Tahmin al" butonuna basın</span></div>
+              <div class="step"><span class="step__num">4</span><span id="i18n-scen1-s4"><code>probability_1</code> değerine göre karar verin</span></div>
+            </div>
+          </div>
+          <div class="scenario-card">
+            <span class="scenario-card__icon">📊</span>
+            <div class="scenario-card__title" id="i18n-scen2-title">Kampanya Listesi Önceliklendirme</div>
+            <p class="scenario-card__desc" id="i18n-scen2-desc">Elinizdeki yüzlerce ya da binlerce müşteri listesini hızla skorlayıp en yüksek potansiyelleri belirlemek istiyorsunuz.</p>
+            <div class="scenario-card__steps">
+              <div class="step"><span class="step__num">1</span><span id="i18n-scen2-s1">Şablon CSV'yi indirin</span></div>
+              <div class="step"><span class="step__num">2</span><span id="i18n-scen2-s2">Müşteri verilerinizi doldurun</span></div>
+              <div class="step"><span class="step__num">3</span><span id="i18n-scen2-s3">CSV Batch moduna yükleyin</span></div>
+              <div class="step"><span class="step__num">4</span><span id="i18n-scen2-s4">Sonuçları CSV olarak indirip CRM'e aktarın</span></div>
+            </div>
+          </div>
+          <div class="scenario-card">
+            <span class="scenario-card__icon">🔌</span>
+            <div class="scenario-card__title" id="i18n-scen3-title">API Entegrasyonu Testi</div>
+            <p class="scenario-card__desc" id="i18n-scen3-desc">Backend geliştiricisi olarak <code>/predict</code> endpoint'ini doğrudan test etmek istiyorsunuz.</p>
+            <div class="scenario-card__steps">
+              <div class="step"><span class="step__num">1</span><span id="i18n-scen3-s1">JSON moduna geçin</span></div>
+              <div class="step"><span class="step__num">2</span><span id="i18n-scen3-s2">Payload'ı düzenleyin veya yapıştırın</span></div>
+              <div class="step"><span class="step__num">3</span><span id="i18n-scen3-s3">"JSON ile tahmin" ile gönder</span></div>
+              <div class="step"><span class="step__num">4</span><span id="i18n-scen3-s4">Network sekmesinde yanıtı inceleyin</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Operational Tips -->
+    <section class="section" id="tips" aria-label="Operasyon tavsiyeleri">
+      <div class="container">
+        <div class="section__header fade-up">
+          <div class="section__kicker" id="i18n-tips-kicker">Operasyon</div>
+          <h2 class="section__title" id="i18n-tips-title">Basit aksiyon kuralları</h2>
+          <p class="section__desc" id="i18n-tips-desc">
+            Model sonuçlarını aksiyona çevirmek için pratik kurallar. A/B test ile kalibre edin.
+          </p>
+        </div>
+        <div class="tips-grid">
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--good">🛑</div>
+              <div class="tip-card__title" id="i18n-tip1-title">Aşırı aramayı engelle</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip1-text">
+              <strong>9 aramadan fazlasını önleyin.</strong> Marjinal fayda düşer, şikayet ve bloklama riski artar.
+              <code>campaign &gt; 9</code> için "dur / farklı kanal" kuralı koyun.
+            </p>
+          </div>
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--warn">⚠️</div>
+              <div class="tip-card__title" id="i18n-tip2-title">Veri tutarlılığını kontrol et</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip2-text">
+              <code>pdays = -1</code> iken <code>previous</code> büyükse veri hatası olabilir.
+              Gönderimden önce mantık kontrolleri yanlış tahminleri azaltır.
+            </p>
+          </div>
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--info">📈</div>
+              <div class="tip-card__title" id="i18n-tip3-title">Olasılıkla karar ver</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip3-text">
+              Sadece <code>prediction</code> değil, <code>probability_1</code> ile eşik belirleyin:
+              ≥ 0.65 → Ara · 0.45–0.65 → SMS/e-posta · &lt; 0.45 → Beklet.
+            </p>
+          </div>
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--good">📅</div>
+              <div class="tip-card__title" id="i18n-tip4-title">Zamanlama önemli</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip4-text">
+              <code>month</code> ve <code>day</code> değerleri modeli etkiler. Geçmiş verilerinizde yüksek dönüşüm
+              zamanlarını analiz edin; kampanyaları buna göre planlayın.
+            </p>
+          </div>
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--warn">🏦</div>
+              <div class="tip-card__title" id="i18n-tip5-title">Bakiye segmentasyonu</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip5-text">
+              Yüksek <code>balance</code> genellikle yüksek dönüşüm olasılığıyla ilişkilidir.
+              Negatif bakiyeli müşterileri ayrı bir segmentte değerlendirin.
+            </p>
+          </div>
+          <div class="tip-card">
+            <div class="tip-card__header">
+              <div class="tip-icon tip-icon--info">🔁</div>
+              <div class="tip-card__title" id="i18n-tip6-title">poutcome = success önceliklendirin</div>
+            </div>
+            <p class="tip-card__text" id="i18n-tip6-text">
+              Önceki kampanyada başarı yakalanmış müşteriler (<code>poutcome=success</code>) genellikle en yüksek
+              dönüşüm olasılığını gösterir. Batch listede bu grubu önce işleyin.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ───────────────────────────────────────────── -->
+  <footer class="site-footer">
+    <div class="container footer__inner">
+      <div>
+        <div class="footer__brand">ML Tahmin Paneli</div>
+        <div class="footer__sub" id="i18n-footer-sub">FastAPI servisinin <code>/predict</code> endpoint'ine bağlanır.</div>
+        <div class="footer__version" id="i18n-footer-ver">v2.0 · Form + JSON + CSV Batch · TR / EN</div>
+      </div>
+      <div class="footer__tip" id="i18n-footer-tip">
+        💡 İpucu: Tarayıcı geliştirici araçlarında Network sekmesinden <code>/predict</code> çağrısını inceleyebilirsiniz.
+        CSV batch sonuçları yalnızca tarayıcıda gösterilir; sunucu tarafında saklanmaz.
+      </div>
+    </div>
+  </footer>
+
+  <!-- ── Script ───────────────────────────────────────────── -->
+  <script>
+  (function () {
+    "use strict";
+
+    /* ── i18n Dictionary ──────────────────────────────────── */
+    const dict = {
+      tr: {
+        "i18n-skip":              "İçeriğe atla",
+        "i18n-brand-title":       "Tahmin Paneli",
+        "i18n-brand-sub":         "FastAPI · Model Servisi · Batch CSV",
+        "i18n-nav-predict":       "Tahmin",
+        "i18n-nav-columns":       "Kolonlar",
+        "i18n-nav-scenarios":     "Senaryolar",
+        "i18n-nav-tips":          "Tavsiyeler",
+        "i18n-hero-eyebrow":      "Bank Marketing Dataset",
+        "i18n-hero-title":        "Müşteri <span>dönüşüm olasılığı</span> tahmini",
+        "i18n-hero-lead":         "Müşteriye ait demografik ve kampanya özelliklerini girerek ya da CSV dosyası yükleyerek modelin <strong>tahmin</strong> ve <strong>olasılık</strong> skoru üretmesini sağlayın.",
+        "i18n-stat1-label":       "Çıktı",
+        "i18n-stat2-label":       "Özellik",
+        "i18n-stat2-val":         "değişken",
+        "i18n-stat3-label":       "Arayüz",
+        "i18n-qcard-title":       "Hızlı deneme",
+        "i18n-qcard-sub":         "Örnek girdiyi tek tıkla yükle ve tahmin al",
+        "i18n-live-badge":        "LIVE",
+        "i18n-btn-fill":          "📋 Örnek doldur",
+        "i18n-btn-run":           "▶ Tahmin al",
+        "i18n-mini-note":         "Form → JSON → <code>/predict</code> endpoint. Form alanları <code>ModelFeature</code> şemasıyla birebir uyumludur.",
+        "i18n-predict-kicker":    "Tahmin Merkezi",
+        "i18n-predict-title":     "Tahmin al",
+        "i18n-predict-desc":      "Form modu, JSON modu veya CSV batch modu ile tahmin yapabilirsiniz.",
+        "i18n-tab-form":          "📝 Form",
+        "i18n-tab-json":          "🔧 JSON",
+        "i18n-tab-csv":           "📂 CSV Batch",
+        "i18n-form-panel-title":  "Form modu",
+        "i18n-form-panel-hint":   "Doldur → JSON üret → Gönder",
+        "i18n-label-age":         "age",
+        "i18n-help-age":          "Müşteri yaşı (18–120).",
+        "i18n-help-balance":      "Hesap bakiyesi (negatif olabilir).",
+        "i18n-help-default":      "Kredi temerrüdü var mı?",
+        "i18n-help-poutcome":     "Önceki kampanya sonucu.",
+        "i18n-help-day":          "Ayın günü (1–31).",
+        "i18n-help-campaign":     "Bu kampanyada arama sayısı. <strong>9'u geçmeyin.</strong>",
+        "i18n-help-pdays":        "Son iletişimden beri geçen gün. Hiç aranmadıysa <code>-1</code>.",
+        "i18n-help-previous":     "Önceki kampanyalarda iletişim sayısı.",
+        "i18n-label-action":      "İşlem",
+        "i18n-btn-tojson":        "⚙ JSON üret",
+        "i18n-btn-predict":       "🔍 Tahmin al",
+        "i18n-json-panel-title":  "JSON modu",
+        "i18n-json-panel-hint":   "Görüntüle / düzenle / yapıştır",
+        "i18n-btn-example":       "Örnek JSON",
+        "i18n-btn-copy":          "📋 Kopyala",
+        "i18n-btn-predicjson":    "▶ JSON ile tahmin",
+        "i18n-json-hint":         "⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> alanları <strong>int</strong> olmalı.",
+        "i18n-result-title":      "Sonuç",
+        "i18n-pred-k":            "prediction",
+        "i18n-tab-json-title":    "JSON Modu",
+        "i18n-tab-json-hint":     "Ham JSON payload ile tahmin gönder",
+        "i18n-btn-example2":      "Örnek JSON",
+        "i18n-btn-copy2":         "📋 Kopyala",
+        "i18n-btn-predicjson2":   "▶ JSON ile tahmin",
+        "i18n-json-hint2":        "⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> alanları <strong>int</strong> olmalı.",
+        "i18n-result-title2":     "Sonuç",
+        "i18n-csv-panel-title":   "CSV Batch Tahmin",
+        "i18n-csv-panel-hint":    "Birden çok satırı tek seferde tahmin et",
+        "i18n-drop-title":        "CSV dosyasını buraya sürükle veya tıkla",
+        "i18n-drop-sub":          "Desteklenen sütunlar: age, job, marital, education, default, balance, housing, loan, contact, day, month, campaign, pdays, previous, poutcome",
+        "i18n-btn-template":      "⬇ Şablon CSV İndir",
+        "i18n-btn-batch":         "🚀 Batch Tahmin Başlat",
+        "i18n-btn-clear":         "🗑 Temizle",
+        "i18n-btn-export":        "📤 Sonuçları İndir",
+        "i18n-csv-status-idle":   "Dosya seçilmedi.",
+        "i18n-csv-results-title": "Batch Sonuçları",
+        "i18n-col-kicker":        "Şema Referansı",
+        "i18n-col-title":         "Kolonlar (ModelFeature)",
+        "i18n-col-desc":          "Modelin beklediği 15 giriş değişkeninin açıklamaları ve veri kalitesi notları.",
+        "i18n-th-col":            "Kolon",
+        "i18n-th-type":           "Tip",
+        "i18n-th-desc":           "Açıklama",
+        "i18n-th-values":         "Değerler / Aralık",
+        "i18n-th-note":           "Not",
+        "i18n-col-age-desc":      "Müşteri yaşı",
+        "i18n-col-age-note":      "Uç değerler modeli bozabilir.",
+        "i18n-col-job-desc":      "Meslek kategorisi",
+        "i18n-col-job-note":      "Bilinmiyorsa <code>unknown</code>.",
+        "i18n-col-marital-desc":  "Medeni durum",
+        "i18n-col-edu-desc":      "Eğitim seviyesi",
+        "i18n-col-edu-note":      "Boş geçmeyin.",
+        "i18n-col-def-desc":      "Kredi temerrüdü",
+        "i18n-col-bal-desc":      "Hesap bakiyesi",
+        "i18n-col-bal-note":      "Negatif değer mümkündür.",
+        "i18n-col-hous-desc":     "Konut kredisi",
+        "i18n-col-loan-desc":     "Kişisel kredi",
+        "i18n-col-cont-desc":     "İletişim kanalı",
+        "i18n-col-day-desc":      "Ayın günü",
+        "i18n-col-day-note":      "Kalite kontrol önerilir.",
+        "i18n-col-mon-desc":      "Ay",
+        "i18n-col-camp-desc":     "Bu kampanyadaki arama sayısı",
+        "i18n-col-camp-note":     "⚠ 9'dan fazla aramayın.",
+        "i18n-col-pdays-desc":    "Önceki iletişimden bu yana gün",
+        "i18n-col-pdays-note":    "Hiç aranmadıysa <code>-1</code>.",
+        "i18n-col-prev-desc":     "Önceki kampanya iletişim sayısı",
+        "i18n-col-prev-note":     "<code>pdays=-1</code> ise genelde <code>0</code>.",
+        "i18n-col-pout-desc":     "Önceki kampanya sonucu",
+        "i18n-scen-kicker":       "Kullanım Senaryoları",
+        "i18n-scen-title":        "Ne zaman nasıl kullanmalısınız?",
+        "i18n-scen-desc":         "Bu panel üç farklı iş senaryosuna hitap eder. İhtiyacınıza göre uygun modu seçin.",
+        "i18n-scen1-title":       "Tek Müşteri Analizi",
+        "i18n-scen1-desc":        "Bir müşteriyle görüşmeden önce dönüşüm olasılığını anlık ölçmek istiyorsunuz.",
+        "i18n-scen1-s1":          "Form moduna geçin",
+        "i18n-scen1-s2":          "Müşteri bilgilerini doldurun",
+        "i18n-scen1-s3":          "\"Tahmin al\" butonuna basın",
+        "i18n-scen1-s4":          "<code>probability_1</code> değerine göre karar verin",
+        "i18n-scen2-title":       "Kampanya Listesi Önceliklendirme",
+        "i18n-scen2-desc":        "Elinizdeki yüzlerce ya da binlerce müşteri listesini hızla skorlayıp en yüksek potansiyelleri belirlemek istiyorsunuz.",
+        "i18n-scen2-s1":          "Şablon CSV'yi indirin",
+        "i18n-scen2-s2":          "Müşteri verilerinizi doldurun",
+        "i18n-scen2-s3":          "CSV Batch moduna yükleyin",
+        "i18n-scen2-s4":          "Sonuçları CSV olarak indirip CRM'e aktarın",
+        "i18n-scen3-title":       "API Entegrasyonu Testi",
+        "i18n-scen3-desc":        "Backend geliştiricisi olarak <code>/predict</code> endpoint'ini doğrudan test etmek istiyorsunuz.",
+        "i18n-scen3-s1":          "JSON moduna geçin",
+        "i18n-scen3-s2":          "Payload'ı düzenleyin veya yapıştırın",
+        "i18n-scen3-s3":          "\"JSON ile tahmin\" ile gönder",
+        "i18n-scen3-s4":          "Network sekmesinde yanıtı inceleyin",
+        "i18n-tips-kicker":       "Operasyon",
+        "i18n-tips-title":        "Basit aksiyon kuralları",
+        "i18n-tips-desc":         "Model sonuçlarını aksiyona çevirmek için pratik kurallar. A/B test ile kalibre edin.",
+        "i18n-tip1-title":        "Aşırı aramayı engelle",
+        "i18n-tip1-text":         "<strong>9 aramadan fazlasını önleyin.</strong> Marjinal fayda düşer, şikayet ve bloklama riski artar. <code>campaign &gt; 9</code> için \"dur / farklı kanal\" kuralı koyun.",
+        "i18n-tip2-title":        "Veri tutarlılığını kontrol et",
+        "i18n-tip2-text":         "<code>pdays = -1</code> iken <code>previous</code> büyükse veri hatası olabilir. Gönderimden önce mantık kontrolleri yanlış tahminleri azaltır.",
+        "i18n-tip3-title":        "Olasılıkla karar ver",
+        "i18n-tip3-text":         "Sadece <code>prediction</code> değil, <code>probability_1</code> ile eşik belirleyin: ≥ 0.65 → Ara · 0.45–0.65 → SMS/e-posta · &lt; 0.45 → Beklet.",
+        "i18n-tip4-title":        "Zamanlama önemli",
+        "i18n-tip4-text":         "<code>month</code> ve <code>day</code> değerleri modeli etkiler. Geçmiş verilerinizde yüksek dönüşüm zamanlarını analiz edin; kampanyaları buna göre planlayın.",
+        "i18n-tip5-title":        "Bakiye segmentasyonu",
+        "i18n-tip5-text":         "Yüksek <code>balance</code> genellikle yüksek dönüşüm olasılığıyla ilişkilidir. Negatif bakiyeli müşterileri ayrı bir segmentte değerlendirin.",
+        "i18n-tip6-title":        "poutcome = success önceliklendirin",
+        "i18n-tip6-text":         "Önceki kampanyada başarı yakalanmış müşteriler (<code>poutcome=success</code>) genellikle en yüksek dönüşüm olasılığını gösterir. Batch listede bu grubu önce işleyin.",
+        "i18n-footer-sub":        "FastAPI servisinin <code>/predict</code> endpoint'ine bağlanır.",
+        "i18n-footer-ver":        "v2.0 · Form + JSON + CSV Batch · TR / EN",
+        "i18n-footer-tip":        "💡 İpucu: Tarayıcı geliştirici araçlarında Network sekmesinden <code>/predict</code> çağrısını inceleyebilirsiniz. CSV batch sonuçları yalnızca tarayıcıda gösterilir; sunucu tarafında saklanmaz.",
+        "select-placeholder":     "Seçin…",
+        "prediction-yes":         "1 (Evet — Aday)",
+        "prediction-no":          "0 (Hayır — Düşük İhtimal)",
+        "meaning-yes":            "Müşteri olumlu dönüş yapabilir. probability_1 değerini kullanarak aksiyon önceliği belirleyin.",
+        "meaning-no":             "Olumlu dönüş olasılığı düşük. Alternatif kanal veya bekleme listesi düşünebilirsiniz.",
+        "toast-example-filled":   "✓ Örnek input dolduruldu.",
+        "toast-example-json":     "✓ Örnek JSON hazır.",
+        "toast-copied":           "✓ JSON kopyalandı.",
+        "toast-json-gen":         "✓ JSON üretildi.",
+        "toast-template":         "✓ Şablon CSV indirildi.",
+        "toast-csv-loaded":       "✓ CSV yüklendi",
+        "toast-csv-done":         "✓ Batch tamamlandı",
+        "toast-export":           "✓ Sonuçlar indirildi.",
+        "error-copy":             "Kopyalama engellendi.",
+        "error-form":             "Formda hata var.",
+        "error-api":              "API hatası.",
+        "error-json":             "JSON / API hatası.",
+        "error-csv-empty":        "CSV dosyası boş veya sütunlar okunamadı.",
+        "error-csv-cols":         "Eksik sütunlar: ",
+        "warn-csv-campaign":      "campaign > 9 olan satırlar var — tüm satırlar işlenecek, ancak bu müşterileri aramadan önce değerlendirmeniz tavsiye edilir.",
+        "i18n-advice-title":      "Aksiyon Tavsiyesi",
+        "advice-high-yes":        "Yüksek dönüşüm potansiyeli — öncelikli ara.",
+        "advice-mid-yes":         "Orta potansiyel — önce SMS/e-posta dene, yanıt yoksa ara.",
+        "advice-low-yes":         "Düşük-orta potansiyel — standart kampanya akışına dahil et.",
+        "advice-no":              "Düşük dönüşüm beklentisi — şimdilik beklet veya farklı kanal dene.",
+        "advice-campaign-warn":   "Bu müşteri bu kampanyada zaten birçok kez arandı. Daha fazla arama müşteri deneyimini olumsuz etkileyebilir.",
+        "advice-poutcome-success":"Önceki kampanya başarılıydı — bu müşteri yeniden ikna edilebilir.",
+        "advice-poutcome-fail":   "Önceki kampanya başarısız oldu — teklifin değer önermesini güçlendirin.",
+        "advice-balance-low":     "Hesap bakiyesi düşük/negatif — uygun ürün/teklif seçimine dikkat edin.",
+        "advice-cellular":        "Cep telefonu üzerinden iletişim kurulan müşteri dönüşüm oranı genellikle daha yüksektir.",
+        "label-rows":             "satır",
+        "label-processed":        "işlendi",
+        "label-yes-count":        "Evet (1)",
+        "label-no-count":         "Hayır (0)",
+        "label-conv-rate":        "Dönüşüm oranı",
+      },
+      en: {
+        "i18n-skip":              "Skip to content",
+        "i18n-brand-title":       "Prediction Panel",
+        "i18n-brand-sub":         "FastAPI · Model Service · Batch CSV",
+        "i18n-nav-predict":       "Predict",
+        "i18n-nav-columns":       "Columns",
+        "i18n-nav-scenarios":     "Scenarios",
+        "i18n-nav-tips":          "Tips",
+        "i18n-hero-eyebrow":      "Bank Marketing Dataset",
+        "i18n-hero-title":        "Customer <span>conversion probability</span> prediction",
+        "i18n-hero-lead":         "Enter demographic and campaign features or upload a CSV file to generate the model's <strong>prediction</strong> and <strong>probability</strong> score.",
+        "i18n-stat1-label":       "Output",
+        "i18n-stat2-label":       "Features",
+        "i18n-stat2-val":         "variables",
+        "i18n-stat3-label":       "Interface",
+        "i18n-qcard-title":       "Quick try",
+        "i18n-qcard-sub":         "Load example input with one click and get a prediction",
+        "i18n-live-badge":        "LIVE",
+        "i18n-btn-fill":          "📋 Fill example",
+        "i18n-btn-run":           "▶ Predict",
+        "i18n-mini-note":         "Form → JSON → <code>/predict</code> endpoint. Form fields match the <code>ModelFeature</code> schema exactly.",
+        "i18n-predict-kicker":    "Prediction Center",
+        "i18n-predict-title":     "Get prediction",
+        "i18n-predict-desc":      "Use form mode, JSON mode, or CSV batch mode to run predictions.",
+        "i18n-tab-form":          "📝 Form",
+        "i18n-tab-json":          "🔧 JSON",
+        "i18n-tab-csv":           "📂 CSV Batch",
+        "i18n-form-panel-title":  "Form mode",
+        "i18n-form-panel-hint":   "Fill → Generate JSON → Submit",
+        "i18n-label-age":         "age",
+        "i18n-help-age":          "Customer age (18–120).",
+        "i18n-help-balance":      "Account balance (can be negative).",
+        "i18n-help-default":      "Has credit default?",
+        "i18n-help-poutcome":     "Previous campaign outcome.",
+        "i18n-help-day":          "Day of month (1–31).",
+        "i18n-help-campaign":     "Number of calls this campaign. <strong>Don't exceed 9.</strong>",
+        "i18n-help-pdays":        "Days since last contact. Use <code>-1</code> if never contacted.",
+        "i18n-help-previous":     "Number of contacts in previous campaigns.",
+        "i18n-label-action":      "Action",
+        "i18n-btn-tojson":        "⚙ Generate JSON",
+        "i18n-btn-predict":       "🔍 Predict",
+        "i18n-json-panel-title":  "JSON mode",
+        "i18n-json-panel-hint":   "View / edit / paste",
+        "i18n-btn-example":       "Example JSON",
+        "i18n-btn-copy":          "📋 Copy",
+        "i18n-btn-predicjson":    "▶ Predict with JSON",
+        "i18n-json-hint":         "⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> must be <strong>int</strong>.",
+        "i18n-result-title":      "Result",
+        "i18n-pred-k":            "prediction",
+        "i18n-tab-json-title":    "JSON Mode",
+        "i18n-tab-json-hint":     "Send prediction with raw JSON payload",
+        "i18n-btn-example2":      "Example JSON",
+        "i18n-btn-copy2":         "📋 Copy",
+        "i18n-btn-predicjson2":   "▶ Predict with JSON",
+        "i18n-json-hint2":        "⚠ <code>age</code>, <code>balance</code>, <code>day</code>, <code>campaign</code>, <code>pdays</code>, <code>previous</code> must be <strong>int</strong>.",
+        "i18n-result-title2":     "Result",
+        "i18n-csv-panel-title":   "CSV Batch Prediction",
+        "i18n-csv-panel-hint":    "Predict multiple rows at once",
+        "i18n-drop-title":        "Drop CSV file here or click",
+        "i18n-drop-sub":          "Supported columns: age, job, marital, education, default, balance, housing, loan, contact, day, month, campaign, pdays, previous, poutcome",
+        "i18n-btn-template":      "⬇ Download Template CSV",
+        "i18n-btn-batch":         "🚀 Start Batch Prediction",
+        "i18n-btn-clear":         "🗑 Clear",
+        "i18n-btn-export":        "📤 Download Results",
+        "i18n-csv-status-idle":   "No file selected.",
+        "i18n-csv-results-title": "Batch Results",
+        "i18n-col-kicker":        "Schema Reference",
+        "i18n-col-title":         "Columns (ModelFeature)",
+        "i18n-col-desc":          "Descriptions and data quality notes for all 15 input features.",
+        "i18n-th-col":            "Column",
+        "i18n-th-type":           "Type",
+        "i18n-th-desc":           "Description",
+        "i18n-th-values":         "Values / Range",
+        "i18n-th-note":           "Note",
+        "i18n-col-age-desc":      "Customer age",
+        "i18n-col-age-note":      "Extreme values may distort the model.",
+        "i18n-col-job-desc":      "Job category",
+        "i18n-col-job-note":      "Use <code>unknown</code> if not available.",
+        "i18n-col-marital-desc":  "Marital status",
+        "i18n-col-edu-desc":      "Education level",
+        "i18n-col-edu-note":      "Don't leave empty.",
+        "i18n-col-def-desc":      "Credit default",
+        "i18n-col-bal-desc":      "Account balance",
+        "i18n-col-bal-note":      "Negative values are possible.",
+        "i18n-col-hous-desc":     "Has housing loan",
+        "i18n-col-loan-desc":     "Has personal loan",
+        "i18n-col-cont-desc":     "Contact channel",
+        "i18n-col-day-desc":      "Day of month",
+        "i18n-col-day-note":      "Quality check recommended.",
+        "i18n-col-mon-desc":      "Month",
+        "i18n-col-camp-desc":     "Number of calls this campaign",
+        "i18n-col-camp-note":     "⚠ Don't exceed 9.",
+        "i18n-col-pdays-desc":    "Days since last contact",
+        "i18n-col-pdays-note":    "Use <code>-1</code> if never contacted.",
+        "i18n-col-prev-desc":     "Previous campaign contact count",
+        "i18n-col-prev-note":     "Usually <code>0</code> when <code>pdays=-1</code>.",
+        "i18n-col-pout-desc":     "Previous campaign outcome",
+        "i18n-scen-kicker":       "Usage Scenarios",
+        "i18n-scen-title":        "When and how should you use this?",
+        "i18n-scen-desc":         "This panel addresses three different business scenarios. Choose the appropriate mode for your needs.",
+        "i18n-scen1-title":       "Single Customer Analysis",
+        "i18n-scen1-desc":        "You want to measure conversion probability in real time before contacting a customer.",
+        "i18n-scen1-s1":          "Go to Form mode",
+        "i18n-scen1-s2":          "Fill in the customer information",
+        "i18n-scen1-s3":          "Click \"Predict\"",
+        "i18n-scen1-s4":          "Make a decision based on <code>probability_1</code>",
+        "i18n-scen2-title":       "Campaign List Prioritization",
+        "i18n-scen2-desc":        "You want to quickly score hundreds or thousands of customers and identify the highest-potential ones.",
+        "i18n-scen2-s1":          "Download the template CSV",
+        "i18n-scen2-s2":          "Fill in your customer data",
+        "i18n-scen2-s3":          "Upload to CSV Batch mode",
+        "i18n-scen2-s4":          "Download results CSV and import to CRM",
+        "i18n-scen3-title":       "API Integration Testing",
+        "i18n-scen3-desc":        "As a backend developer you want to test the <code>/predict</code> endpoint directly.",
+        "i18n-scen3-s1":          "Switch to JSON mode",
+        "i18n-scen3-s2":          "Edit or paste your payload",
+        "i18n-scen3-s3":          "Send with \"Predict with JSON\"",
+        "i18n-scen3-s4":          "Inspect the response in Network tab",
+        "i18n-tips-kicker":       "Operations",
+        "i18n-tips-title":        "Simple action rules",
+        "i18n-tips-desc":         "Practical rules to turn model results into actions. Calibrate with A/B testing.",
+        "i18n-tip1-title":        "Prevent over-calling",
+        "i18n-tip1-text":         "<strong>Don't exceed 9 calls.</strong> Marginal benefit drops and complaint/blocking risk rises. Set a 'stop / try different channel' rule for <code>campaign &gt; 9</code>.",
+        "i18n-tip2-title":        "Check data consistency",
+        "i18n-tip2-text":         "If <code>pdays = -1</code> but <code>previous</code> is large, it may be a data error. Logic checks before submission reduce wrong predictions.",
+        "i18n-tip3-title":        "Decide with probability",
+        "i18n-tip3-text":         "Set a threshold with <code>probability_1</code>, not just <code>prediction</code>: ≥ 0.65 → Call · 0.45–0.65 → SMS/email · &lt; 0.45 → Wait.",
+        "i18n-tip4-title":        "Timing matters",
+        "i18n-tip4-text":         "<code>month</code> and <code>day</code> values affect the model. Analyze which periods yield high conversion in your historical data and plan campaigns accordingly.",
+        "i18n-tip5-title":        "Balance segmentation",
+        "i18n-tip5-text":         "Higher <code>balance</code> is generally associated with higher conversion probability. Evaluate customers with negative balances in a separate segment.",
+        "i18n-tip6-title":        "Prioritize poutcome = success",
+        "i18n-tip6-text":         "Customers with a successful previous campaign (<code>poutcome=success</code>) typically show the highest conversion probability. Process this group first in your batch list.",
+        "i18n-footer-sub":        "Connects to FastAPI's <code>/predict</code> endpoint.",
+        "i18n-footer-ver":        "v2.0 · Form + JSON + CSV Batch · TR / EN",
+        "i18n-footer-tip":        "💡 Tip: You can inspect the <code>/predict</code> call in your browser's Network tab. CSV batch results are only displayed in the browser; nothing is stored server-side.",
+        "select-placeholder":     "Select…",
+        "prediction-yes":         "1 (Yes — Candidate)",
+        "prediction-no":          "0 (No — Low Probability)",
+        "meaning-yes":            "Customer may convert. Use probability_1 to set action priority.",
+        "meaning-no":             "Low conversion probability. Consider an alternative channel or waitlist.",
+        "toast-example-filled":   "✓ Example input loaded.",
+        "toast-example-json":     "✓ Example JSON ready.",
+        "toast-copied":           "✓ JSON copied.",
+        "toast-json-gen":         "✓ JSON generated.",
+        "toast-template":         "✓ Template CSV downloaded.",
+        "toast-csv-loaded":       "✓ CSV loaded",
+        "toast-csv-done":         "✓ Batch complete",
+        "toast-export":           "✓ Results downloaded.",
+        "error-copy":             "Copy blocked.",
+        "error-form":             "Form has errors.",
+        "error-api":              "API error.",
+        "error-json":             "JSON / API error.",
+        "error-csv-empty":        "CSV file is empty or columns could not be read.",
+        "error-csv-cols":         "Missing columns: ",
+        "warn-csv-campaign":      "Some rows have campaign > 9 — all rows will be processed, but it's advisable to review these customers before calling.",
+        "i18n-advice-title":      "Action Recommendation",
+        "advice-high-yes":        "High conversion potential — prioritize this call.",
+        "advice-mid-yes":         "Medium potential — try SMS/email first, then call if no response.",
+        "advice-low-yes":         "Low-medium potential — include in standard campaign flow.",
+        "advice-no":              "Low conversion expectation — hold for now or try a different channel.",
+        "advice-campaign-warn":   "This customer has already been contacted many times this campaign. Further calls may harm the customer experience.",
+        "advice-poutcome-success":"Previous campaign was successful — this customer can likely be converted again.",
+        "advice-poutcome-fail":   "Previous campaign failed — strengthen the value proposition of your offer.",
+        "advice-balance-low":     "Account balance is low/negative — consider appropriate product/offer selection.",
+        "advice-cellular":        "Customers contacted via mobile phone tend to have higher conversion rates.",
+        "label-rows":             "rows",
+        "label-processed":        "processed",
+        "label-yes-count":        "Yes (1)",
+        "label-no-count":         "No (0)",
+        "label-conv-rate":        "Conversion rate",
+      }
+    };
+
+    let lang = 'tr';
+    const t = (key) => dict[lang][key] || dict['tr'][key] || key;
+
+    function applyLang() {
+      document.documentElement.lang = lang;
+      Object.keys(dict[lang]).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = dict[lang][id];
+      });
+      // Update select placeholders
+      document.querySelectorAll('select option[disabled][value=""]').forEach(opt => {
+        opt.textContent = t('select-placeholder');
+      });
+      // Update result labels and advice if visible
+      if (!document.getElementById('result').hidden) {
+        updateResultLabels();
+      }
+      // Re-render advice text if visible
+      const adviceBox = document.getElementById('adviceBox');
+      if (adviceBox && !adviceBox.hidden && window._lastAdviceData) {
+        renderAdvice(window._lastAdviceData.data, window._lastAdviceData.payload);
+      }
+    }
+
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        lang = btn.dataset.lang;
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+        applyLang();
+        showToast(lang === 'tr' ? 'Türkçe seçildi 🇹🇷' : 'English selected 🇬🇧', 'info');
+      });
+    });
+
+    /* ── Tabs ─────────────────────────────────────────────── */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    /* ── Toast ────────────────────────────────────────────── */
+    function showToast(msg, kind = 'success') {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `toast toast--${kind}`;
+      t.innerHTML = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 2600);
+    }
+
+    /* ── Example Data ─────────────────────────────────────── */
+    const example = {
+      age: 35, job: "technician", marital: "married", education: "secondary",
+      default: "no", balance: 1200, housing: "yes", loan: "no",
+      contact: "cellular", day: 15, month: "may", campaign: 3,
+      pdays: -1, previous: 0, poutcome: "unknown"
+    };
+
+    function fillExampleToForm() {
+      const map = { age:35, balance:1200, job:"technician", marital:"married", education:"secondary",
+                    fdefault:"no", housing:"yes", loan:"no", contact:"cellular", day:15,
+                    month:"may", campaign:3, pdays:-1, previous:0, poutcome:"unknown" };
+      Object.entries(map).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+    }
+
+    function fillExampleJson(ta) { ta.value = JSON.stringify(example, null, 2); }
+
+    /* ── Helpers ──────────────────────────────────────────── */
+    function normalizeInt(val, name) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || !Number.isInteger(n))
+        throw new Error(`"${name}" must be an integer (int).`);
+      return n;
+    }
+
+    function safePct(x) {
+      const n = Number(x);
+      return Number.isFinite(n) ? Math.max(0, Math.min(100, n * 100)) : 0;
+    }
+
+    function buildPayloadFromForm() {
+      const fd = new FormData(document.getElementById('predictForm'));
+      const p  = Object.fromEntries(fd.entries());
+      p.age      = normalizeInt(p.age,      'age');
+      p.balance  = normalizeInt(p.balance,  'balance');
+      p.day      = normalizeInt(p.day,      'day');
+      p.campaign = normalizeInt(p.campaign, 'campaign');
+      p.pdays    = normalizeInt(p.pdays,    'pdays');
+      p.previous = normalizeInt(p.previous, 'previous');
+      return p;
+    }
+
+    /* ── API call ─────────────────────────────────────────── */
+    async function callPredict(payload) {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const ct = res.headers.get('content-type') || '';
+      const body = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const msg = typeof body === 'string' ? body
+          : body?.detail ? JSON.stringify(body.detail, null, 2)
+          : JSON.stringify(body, null, 2);
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+      return body;
+    }
+
+    /* ── Render Advice ────────────────────────────────────── */
+    function renderAdvice(data, payload) {
+      const adviceBox  = document.getElementById('adviceBox');
+      const adviceBody = document.getElementById('adviceBody');
+      if (!adviceBox) return;
+
+      // Store for language re-render
+      window._lastAdviceData = { data, payload };
+
+      const p1   = Number(data.probability_1);
+      const pred = Number(data.prediction);
+      const campaign  = Number(payload?.campaign  || 0);
+      const poutcome  = String(payload?.poutcome  || '');
+      const balance   = Number(payload?.balance   || 0);
+      const contact   = String(payload?.contact   || '');
+
+      const items = [];
+
+      // Primary action based on probability
+      if (pred === 1) {
+        if (p1 >= 0.65) {
+          items.push({ dot: 'good', text: t('advice-high-yes') });
+        } else if (p1 >= 0.45) {
+          items.push({ dot: 'warn', text: t('advice-mid-yes') });
+        } else {
+          items.push({ dot: 'info', text: t('advice-low-yes') });
+        }
+      } else {
+        items.push({ dot: 'warn', text: t('advice-no') });
+      }
+
+      // Campaign count warning
+      if (campaign > 9) {
+        items.push({ dot: 'warn', text: t('advice-campaign-warn') });
+      }
+
+      // poutcome hints
+      if (poutcome === 'success') {
+        items.push({ dot: 'good', text: t('advice-poutcome-success') });
+      } else if (poutcome === 'failure') {
+        items.push({ dot: 'warn', text: t('advice-poutcome-fail') });
+      }
+
+      // Balance hint
+      if (balance < 0) {
+        items.push({ dot: 'warn', text: t('advice-balance-low') });
+      }
+
+      // Contact channel hint
+      if (contact === 'cellular') {
+        items.push({ dot: 'info', text: t('advice-cellular') });
+      }
+
+      adviceBody.innerHTML = items.map(item => `
+        <div class="advice-item">
+          <div class="advice-item__dot advice-item__dot--${item.dot}"></div>
+          <div>${item.text}</div>
+        </div>
+      `).join('');
+
+      adviceBox.hidden = false;
+    }
+
+    /* ── Render Result ────────────────────────────────────── */
+    function renderResult(data, src, ids, payload) {
+      const p0 = Number(data.probability_0);
+      const p1 = Number(data.probability_1);
+      const pred = Number(data.prediction);
+      ids.result.hidden = false;
+      ids.error.hidden  = true;
+
+      const predText = pred === 1 ? t('prediction-yes') : t('prediction-no');
+      const meaning  = pred === 1 ? t('meaning-yes')    : t('meaning-no');
+
+      ids.predLabel.textContent = predText;
+      ids.predSub.textContent   = meaning;
+      ids.prob1.textContent     = Number.isFinite(p1) ? p1.toFixed(4) : '—';
+      ids.prob0.textContent     = Number.isFinite(p0) ? p0.toFixed(4) : '—';
+      ids.prob1Bar.style.width  = `${safePct(p1)}%`;
+      ids.prob0Bar.style.width  = `${safePct(p0)}%`;
+      ids.meta.textContent      = `${src} · ${new Date().toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US')}`;
+
+      // Show advice only for panel1 (form/json tab)
+      if (ids.result.id === 'result') {
+        renderAdvice(data, payload);
+      }
+    }
+
+    // Current result prediction label
+    let lastPred = null, lastPredSub = null;
+    function updateResultLabels() {
+      if (lastPred !== null) {
+        const predText = lastPred === 1 ? t('prediction-yes') : t('prediction-no');
+        const meaning  = lastPred === 1 ? t('meaning-yes') : t('meaning-no');
+        document.getElementById('predLabel').textContent = predText;
+        document.getElementById('predSub').textContent   = meaning;
+        document.getElementById('predLabel2').textContent = predText;
+        document.getElementById('predSub2').textContent   = meaning;
+      }
+    }
+
+    /* ── Set btn loading ──────────────────────────────────── */
+    function setBtnLoading(btn, loading) {
+      btn.disabled = loading;
+      btn.classList.toggle('loading', loading);
+    }
+
+    /* ── Tab 1: Form + JSON ───────────────────────────────── */
+    const panel1 = {
+      result:    document.getElementById('result'),
+      error:     document.getElementById('apiError'),
+      predLabel: document.getElementById('predLabel'),
+      predSub:   document.getElementById('predSub'),
+      prob1:     document.getElementById('prob1'),
+      prob0:     document.getElementById('prob0'),
+      prob1Bar:  document.getElementById('prob1Bar'),
+      prob0Bar:  document.getElementById('prob0Bar'),
+      meta:      document.getElementById('resultMeta'),
+    };
+
+    document.getElementById('btnFillExample').addEventListener('click', () => {
+      fillExampleToForm();
+      fillExampleJson(document.getElementById('jsonPayload'));
+      showToast(t('toast-example-filled'));
+    });
+
+    document.getElementById('btnPasteExample').addEventListener('click', () => {
+      fillExampleJson(document.getElementById('jsonPayload'));
+      showToast(t('toast-example-json'));
+    });
+
+    document.getElementById('btnCopyJson').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(document.getElementById('jsonPayload').value || '');
+        showToast(t('toast-copied'));
+      } catch { showToast(t('error-copy'), 'error'); }
+    });
+
+    document.getElementById('btnToJson').addEventListener('click', () => {
+      try {
+        const payload = buildPayloadFromForm();
+        document.getElementById('jsonPayload').value = JSON.stringify(payload, null, 2);
+        showToast(t('toast-json-gen'));
+      } catch (e) {
+        const fv = document.getElementById('formValidation');
+        fv.textContent = e?.message || t('error-form');
+        fv.hidden = false;
+      }
+    });
+
+    document.getElementById('predictForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = document.getElementById('btnPredict');
+      setBtnLoading(btn, true);
+      document.getElementById('formValidation').hidden = true;
+      try {
+        const payload = buildPayloadFromForm();
+        document.getElementById('jsonPayload').value = JSON.stringify(payload, null, 2);
+        const data = await callPredict(payload);
+        lastPred = Number(data.prediction);
+        renderResult(data, 'Form', panel1, payload);
+      } catch (e) {
+        panel1.error.innerHTML = e?.message || t('error-api');
+        panel1.error.hidden = false;
+        showToast(t('error-api'), 'error');
+      } finally { setBtnLoading(btn, false); }
+    });
+
+    document.getElementById('btnPredictJson').addEventListener('click', async () => {
+      const btn = document.getElementById('btnPredictJson');
+      setBtnLoading(btn, true);
+      try {
+        const parsed = JSON.parse(document.getElementById('jsonPayload').value || '{}');
+        ['age','balance','day','campaign','pdays','previous'].forEach(f => {
+          parsed[f] = normalizeInt(parsed[f], f);
+        });
+        const data = await callPredict(parsed);
+        lastPred = Number(data.prediction);
+        renderResult(data, 'JSON', panel1, parsed);
+      } catch (e) {
+        panel1.error.innerHTML = e?.message || t('error-json');
+        panel1.error.hidden = false;
+        showToast(t('error-json'), 'error');
+      } finally { setBtnLoading(btn, false); }
+    });
+
+    document.getElementById('btnRunExample').addEventListener('click', () => {
+      fillExampleToForm();
+      fillExampleJson(document.getElementById('jsonPayload'));
+      document.getElementById('predictForm').dispatchEvent(new Event('submit', {cancelable:true, bubbles:true}));
+    });
+
+    /* ── Tab 2: JSON only ─────────────────────────────────── */
+    const panel2 = {
+      result:    document.getElementById('result2'),
+      error:     document.getElementById('apiError2'),
+      predLabel: document.getElementById('predLabel2'),
+      predSub:   document.getElementById('predSub2'),
+      prob1:     document.getElementById('prob1_2'),
+      prob0:     document.getElementById('prob0_2'),
+      prob1Bar:  document.getElementById('prob1Bar2'),
+      prob0Bar:  document.getElementById('prob0Bar2'),
+      meta:      document.getElementById('resultMeta2'),
+    };
+
+    fillExampleJson(document.getElementById('jsonPayload'));
+    fillExampleJson(document.getElementById('jsonPayload2'));
+
+    document.getElementById('btnPasteExample2').addEventListener('click', () => {
+      fillExampleJson(document.getElementById('jsonPayload2'));
+      showToast(t('toast-example-json'));
+    });
+
+    document.getElementById('btnCopyJson2').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(document.getElementById('jsonPayload2').value || '');
+        showToast(t('toast-copied'));
+      } catch { showToast(t('error-copy'), 'error'); }
+    });
+
+    document.getElementById('btnPredictJson2').addEventListener('click', async () => {
+      const btn = document.getElementById('btnPredictJson2');
+      setBtnLoading(btn, true);
+      try {
+        const parsed = JSON.parse(document.getElementById('jsonPayload2').value || '{}');
+        ['age','balance','day','campaign','pdays','previous'].forEach(f => {
+          parsed[f] = normalizeInt(parsed[f], f);
+        });
+        const data = await callPredict(parsed);
+        lastPred = Number(data.prediction);
+        renderResult(data, 'JSON', panel2, parsed);
+      } catch (e) {
+        panel2.error.innerHTML = e?.message || t('error-json');
+        panel2.error.hidden = false;
+        showToast(t('error-json'), 'error');
+      } finally { setBtnLoading(btn, false); }
+    });
+
+    /* ── CSV Batch ────────────────────────────────────────── */
+    const REQUIRED_COLS = ['age','job','marital','education','default','balance','housing','loan',
+                           'contact','day','month','campaign','pdays','previous','poutcome'];
+    const INT_COLS = ['age','balance','day','campaign','pdays','previous'];
+
+    let csvRows = [];
+    let csvResults = [];
+
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('csvFileInput');
+    const csvStatus  = document.getElementById('csvStatus');
+    const btnRunBatch= document.getElementById('btnRunBatch');
+    const btnClearCsv= document.getElementById('btnClearCsv');
+    const btnExport  = document.getElementById('btnExportCsv');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar  = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const csvWarning   = document.getElementById('csvWarning');
+    const csvError2    = document.getElementById('csvError');
+    const csvResultsEl = document.getElementById('csvResults');
+    const csvTableHead = document.getElementById('csvTableHead');
+    const csvTableBody = document.getElementById('csvTableBody');
+    const csvSummary   = document.getElementById('csvSummary');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleCsvFile(file);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleCsvFile(e.target.files[0]);
+    });
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) return { headers: [], rows: [] };
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/['"]/g,''));
+      const rows = lines.slice(1).filter(l => l.trim()).map(line => {
+        const cells = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g,''));
+        const row = {};
+        headers.forEach((h, i) => { row[h] = cells[i] !== undefined ? cells[i] : ''; });
+        return row;
+      });
+      return { headers, rows };
+    }
+
+    function handleCsvFile(file) {
+      csvError2.hidden = true;
+      csvWarning.hidden = true;
+      csvResultsEl.hidden = true;
+      csvResults = [];
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const { headers, rows } = parseCSV(e.target.result);
+        if (!rows.length) {
+          csvError2.textContent = t('error-csv-empty');
+          csvError2.hidden = false;
+          return;
+        }
+        const missing = REQUIRED_COLS.filter(c => !headers.includes(c));
+        if (missing.length) {
+          csvError2.textContent = t('error-csv-cols') + missing.join(', ');
+          csvError2.hidden = false;
+          return;
+        }
+        csvRows = rows;
+        csvStatus.innerHTML = `<strong>${rows.length}</strong> ${t('label-rows')}`;
+        btnRunBatch.disabled = false;
+        btnClearCsv.disabled = false;
+        btnExport.disabled = true;
+
+        // Note if campaign > 9 (informational only, still processes all rows)
+        const highCamp = rows.filter(r => Number(r.campaign) > 9);
+        if (highCamp.length) {
+          csvWarning.innerHTML = `ℹ️ ${t('warn-csv-campaign')} (${highCamp.length} ${lang === 'tr' ? 'satır' : 'rows'})`;
+          csvWarning.style.borderColor = 'rgba(90,111,255,.30)';
+          csvWarning.style.background  = 'rgba(90,111,255,.08)';
+          csvWarning.style.color       = 'var(--muted)';
+          csvWarning.hidden = false;
+        }
+
+        showToast(`${t('toast-csv-loaded')}: ${rows.length} ${t('label-rows')}`, 'info');
+      };
+      reader.readAsText(file);
+    }
+
+    btnClearCsv.addEventListener('click', () => {
+      csvRows = [];
+      csvResults = [];
+      fileInput.value = '';
+      csvStatus.innerHTML = `<span id="i18n-csv-status-idle">${t('i18n-csv-status-idle')}</span>`;
+      btnRunBatch.disabled = true;
+      btnClearCsv.disabled = true;
+      btnExport.disabled = true;
+      csvResultsEl.hidden = true;
+      csvError2.hidden = true;
+      csvWarning.hidden = true;
+      progressWrap.classList.remove('visible');
+    });
+
+    btnRunBatch.addEventListener('click', async () => {
+      if (!csvRows.length) return;
+      setBtnLoading(btnRunBatch, true);
+      progressWrap.classList.add('visible');
+      progressBar.style.width = '0%';
+      csvResults = [];
+      csvTableHead.innerHTML = '';
+      csvTableBody.innerHTML = '';
+      csvResultsEl.hidden = true;
+
+      const total = csvRows.length;
+      let done = 0;
+
+      // Build headers for result table
+      const displayCols = ['#', ...REQUIRED_COLS, 'prediction', 'probability_0', 'probability_1'];
+      displayCols.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        csvTableHead.appendChild(th);
+      });
+
+      for (let i = 0; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        try {
+          const payload = {};
+          REQUIRED_COLS.forEach(c => {
+            payload[c] = INT_COLS.includes(c) ? parseInt(row[c], 10) : row[c];
+          });
+          const data = await callPredict(payload);
+          const result = { ...row, ...data, _row: i + 1, _ok: true };
+          csvResults.push(result);
+
+          // Append row to table
+          const tr = document.createElement('tr');
+          displayCols.forEach(c => {
+            const td = document.createElement('td');
+            if (c === '#') {
+              td.textContent = i + 1;
+            } else if (c === 'prediction') {
+              const badge = document.createElement('span');
+              const pred = Number(data.prediction);
+              badge.className = pred === 1 ? 'badge badge--yes' : 'badge badge--no';
+              badge.textContent = pred === 1 ? '1 ✓' : '0';
+              td.appendChild(badge);
+            } else if (c === 'probability_0' || c === 'probability_1') {
+              const v = Number(data[c]);
+              td.textContent = Number.isFinite(v) ? v.toFixed(4) : '—';
+            } else {
+              td.textContent = row[c] !== undefined ? row[c] : '—';
+            }
+            tr.appendChild(td);
+          });
+          csvTableBody.appendChild(tr);
+
+        } catch (err) {
+          csvResults.push({ ...row, _row: i+1, _ok: false, _err: err.message });
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = displayCols.length;
+          td.style.color = 'var(--bad)';
+          td.textContent = `Row ${i+1}: ${err.message}`;
+          tr.appendChild(td);
+          csvTableBody.appendChild(tr);
+        }
+
+        done++;
+        const pct = Math.round((done / total) * 100);
+        progressBar.style.width = `${pct}%`;
+        progressText.textContent = `${done} / ${total} ${t('label-processed')}`;
+      }
+
+      // Summary
+      const yesCount = csvResults.filter(r => r._ok && Number(r.prediction) === 1).length;
+      const noCount  = csvResults.filter(r => r._ok && Number(r.prediction) === 0).length;
+      const rate = total > 0 ? ((yesCount / total) * 100).toFixed(1) : '—';
+      csvSummary.innerHTML = `
+        <div class="csv-stat csv-stat--yes">✓ ${t('label-yes-count')}: ${yesCount}</div>
+        <div class="csv-stat csv-stat--no">✗ ${t('label-no-count')}: ${noCount}</div>
+        <div class="csv-stat csv-stat--rate">📊 ${t('label-conv-rate')}: ${rate}%</div>
+      `;
+      csvResultsEl.hidden = false;
+      btnExport.disabled = false;
+      setBtnLoading(btnRunBatch, false);
+      showToast(`${t('toast-csv-done')} — ${yesCount}/${total} ${t('label-yes-count').toLowerCase()}`, 'success');
+    });
+
+    btnExport.addEventListener('click', () => {
+      if (!csvResults.length) return;
+      const cols = [...REQUIRED_COLS, 'prediction', 'probability_0', 'probability_1'];
+      const header = cols.join(',');
+      const rows = csvResults.map(r => cols.map(c => {
+        const v = r[c] !== undefined ? r[c] : '';
+        return String(v).includes(',') ? `"${v}"` : v;
+      }).join(','));
+      const csv = [header, ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch_predictions_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(t('toast-export'));
+    });
+
+    /* ── Template CSV download ────────────────────────────── */
+    document.getElementById('btnDownloadTemplate').addEventListener('click', () => {
+      const header = REQUIRED_COLS.join(',');
+      const example = '35,technician,married,secondary,no,1200,yes,no,cellular,15,may,3,-1,0,unknown';
+      const csv = [header, example].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ml_predict_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(t('toast-template'));
+    });
+
+    /* ── Init ─────────────────────────────────────────────── */
+    applyLang();
+
+  })();
+  </script>
+</body>
+</html>
